@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Магазин
 {
@@ -10,9 +8,7 @@ namespace Магазин
     {
         static void Main()
         {
-            var seller = new Seller();
 
-            seller.ShowProducts();
         }
     }
 
@@ -22,27 +18,34 @@ namespace Магазин
 
         protected List<Product> _products = new List<Product>();
 
-        public void ShowProducts()
+        public void ShowProducts() => Renderer.DrawProductsInfo(Logic.GetArrayProductsInfo(_products));
+    }
+
+    class Player : Human
+    {
+        public Player()
         {
-            Renderer.DrawProductsInfo(GetArrayProductsInfo());
+            _money = 100;
         }
 
-        protected string[] GetArrayProductsInfo()
+        public int GiveMoney(int moneyToGive)
         {
-            string[] foodInfo = new string[_products.Count];
+            //сделать проверку
 
-            for (int i = 0; i < _products.Count; i++)
-                foodInfo[i] = _products[i].GiveInfo();
+            _money -= moneyToGive;
 
-            return foodInfo;
+            return moneyToGive;
         }
     }
 
     class Seller : Human
     {
-
+        public Seller()
+        {
+            _money = 0;
+        }
     }
-    //реализация с enum нормальная или перемудрил?
+
     enum ProductNames
     {
         Cheese,
@@ -53,30 +56,14 @@ namespace Магазин
 
     class Product
     {
-        private static Dictionary<int, string> _russiansNames = new Dictionary<int, string>()
-        {
-            { ((int)ProductNames.Cheese), "Сыр" },
-            { ((int)ProductNames.Sausage), "Колбаса" },
-            { ((int)ProductNames.Bread), "Хлеб" },
-            { ((int)ProductNames.Rice), "Рис" },
-        };
-
-        private Product(int price, string name)
+        public Product(int price, string name)
         {
             Price = price;
             Name = name;
         }
 
-        public int Price { get; private set; }
-        public string Name { get; private set; }
-
-        public static Product CreateCheese(int price) => new Product(price, _russiansNames[((int)ProductNames.Cheese)]);
-        //порядок методов настроить
-        public static Product CreateSausage(int price) => new Product(price, _russiansNames[((int)ProductNames.Sausage)]);
-
-        public static Product CreateBread(int price) => new Product(price, _russiansNames[((int)ProductNames.Bread)]);
-
-        public static Product CreateRice(int price) => new Product(price, _russiansNames[((int)ProductNames.Rice)]);
+        public int Price { get; protected set; }
+        public string Name { get; protected set; }
 
         public string GiveInfo() => $"{Name}, стоит {Price}.";
     }
@@ -126,7 +113,7 @@ namespace Магазин
                         break;
                 }
 
-                CheckIndexBorder(menuIndex, lastIndex);
+                menuIndex = CheckIndexBorder(menuIndex, lastIndex);
 
             } while (_isWork);
         }
@@ -148,6 +135,35 @@ namespace Магазин
             Renderer.EraseText(Renderer.ResponseCursorPositionY);
 
             _actions[_actions.Keys.ToArray()[index]].Invoke();
+        }
+    }
+
+    static class Logic
+    {
+        private static Dictionary<ProductNames, string> _russiansNames = new Dictionary<ProductNames, string>()
+        {
+            { (ProductNames.Cheese), "Сыр" },
+            { (ProductNames.Sausage), "Колбаса" },
+            { (ProductNames.Bread), "Хлеб" },
+            { (ProductNames.Rice), "Рис" },
+        };
+
+        public static string CheckRussianName(ProductNames name)
+        {
+            if (_russiansNames.ContainsKey(name))
+                return _russiansNames[name];
+            else
+                return name.ToString();
+        }
+
+        public static string[] GetArrayProductsInfo(List<Product> products)
+        {
+            string[] foodInfo = new string[products.Count];
+
+            for (int i = 0; i < products.Count; i++)
+                foodInfo[i] = products[i].GiveInfo();
+
+            return foodInfo;
         }
     }
 
