@@ -27,13 +27,11 @@ namespace Магазин
     {
         public Player()
         {
-            _money = 100;
+            _money = 2000;
         }
 
         public int GiveMoney(int moneyToGive)
         {
-            //сделать проверку
-
             _money -= moneyToGive;
 
             return moneyToGive;
@@ -56,6 +54,10 @@ namespace Магазин
 
             _products = Logic.CreateProductsList(_productsPrice, productsQuantity);
         }
+
+        public void TakeMoney(int money) => _money += money;
+
+        public void GiveProduct(Product product) => _products.Remove(product);
     }
 
     enum ProductNames
@@ -63,7 +65,7 @@ namespace Магазин
         Cheese,
         Sausage,
         Bread,
-        Rice,
+        Rice
     }
 
     class Product
@@ -78,6 +80,44 @@ namespace Магазин
         public string Name { get; protected set; }
 
         public string GiveInfo() => $"{Name}, стоит {Price}.";
+    }
+
+    class BoxFactory
+    {
+        public Box CreateTomato(int quantity, string name)
+        {
+            Product product = new Product(70, name);
+
+            return new Box(product, quantity);
+        }
+    }
+
+    class Box
+    {
+        public Box(Product product, int quantity)
+        {
+            Product = product;
+            Quantity = quantity;
+        }
+
+        public int Quantity { get; private set; }
+        public Product Product { get; }
+
+
+        public bool TryGiveOne(out Product product)
+        {
+            if (Quantity < 0)
+            {
+                product = null;
+                return false;
+            }
+
+            Quantity--;
+
+            product = new Product(Product.Price, Product.Name);
+
+            return true;
+        }
     }
 
     class Menu
@@ -152,6 +192,8 @@ namespace Магазин
 
     static class Logic
     {
+        public static Random Random = new Random();
+
         private static Dictionary<ProductNames, string> _russiansNames = new Dictionary<ProductNames, string>()
         {
             { ProductNames.Cheese, "Сыр" },
@@ -159,8 +201,6 @@ namespace Магазин
             { ProductNames.Bread, "Хлеб" },
             { ProductNames.Rice, "Рис" },
         };
-
-        public static Random Random = new Random();
 
         public static string CheckRussianName(ProductNames name)
         {
@@ -186,6 +226,42 @@ namespace Магазин
             }
         }
 
+        public static string[] GetArrayProductsInfo(List<Product> products)
+        {
+            string[] productsNames = Enum.GetNames(typeof(ProductNames));
+
+            Dictionary<string, int> productsQuantity = new Dictionary<string, int>();
+
+            foreach (string name in productsNames)
+                productsQuantity.Add(name, 0);
+
+            foreach (Product product in products)
+                productsQuantity[product.Name] = productsQuantity[product.Name]++;
+
+            string[] productsInfo = new string[products.Count];
+
+            for (int i = 0; i < products.Count; i++)
+                productsInfo[i] = products[i].GiveInfo();
+
+            return productsInfo;
+        }
+
+        public static List<Product> CreateProductsList(Dictionary<ProductNames, int> productsPrice, int productsCount)
+        {
+            List<Product> products = new List<Product>();
+
+            int enumLength = Enum.GetNames(typeof(ProductNames)).Length;
+
+            for (int i = 0; i < productsCount; i++)
+            {
+                ProductNames productName = (ProductNames)Random.Next(enumLength);
+
+                products.Add(new Product(CheckPrice(productsPrice, productName), CheckRussianName(productName)));
+            }
+
+            return products;
+        }
+
         private static string ReadStringInput(string text)
         {
             Renderer.DrawText(text, Renderer.RequestCursorPositionY);
@@ -206,40 +282,10 @@ namespace Магазин
                 userInput = ReadStringInput(text);
             }
 
+            Renderer.EraseText(Renderer.ResponseCursorPositionY);
+            Renderer.EraseText(Renderer.RequestCursorPositionY);
+
             return number;
-        }
-
-        public static string[] GetArrayProductsInfo(List<Product> products)
-        {
-            string[] foodInfo = new string[products.Count];
-
-            for (int i = 0; i < products.Count; i++)
-                foodInfo[i] = products[i].GiveInfo();
-
-            return foodInfo;
-        }
-
-        public static List<Product> CreateProductsList(Dictionary<ProductNames, int> productsPrice, int productsCount)
-        {
-            List<Product> products = new List<Product>();
-
-            //string[] enumArray = Enum.GetNames(typeof(ProductNames));
-            //int enumQuantity = enumArray.Length;
-            //int randomEnum = Random.Next(enumQuantity);
-            //ProductNames productName = (ProductNames)randomEnum;
-
-            //ProductNames productName = (ProductNames)Random.Next(Enum.GetNames(typeof(ProductNames)).Length);
-
-            int enumLength = Enum.GetNames(typeof(ProductNames)).Length;
-
-            for (int i = 0; i < productsCount; i++)
-            {
-                ProductNames productName = (ProductNames)Random.Next(enumLength);
-
-                products.Add(new Product(CheckPrice(productsPrice, productName), CheckRussianName(productName)));
-            }
-
-            return products;
         }
     }
 
@@ -265,12 +311,16 @@ namespace Магазин
             }
         }
 
-        public static void DrawProductsInfo(string[] text)
+        public static void DrawProductsInfo(IEnumerable<string> text)
         {
-            for (int i = 0; i < text.Length; i++)
+            int counter = 0;
+
+            foreach (string product in text)
             {
-                Console.SetCursorPosition(0, ProductsCursorPositionY + i);
-                Console.Write(text[i]);
+                Console.SetCursorPosition(0, ProductsCursorPositionY + counter);
+                Console.Write(product[counter]);
+
+                counter++;
             }
         }
 
