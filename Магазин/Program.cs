@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 
 namespace Магазин
 {
@@ -8,9 +9,39 @@ namespace Магазин
     {
         static void Main()
         {
-            int productsQuantity = 20;
+            Random random = new Random();
 
-            var seller = new Seller(productsQuantity);
+            List<Product> products = new List<Product>();
+
+            string[] productsNames = { "Сыр", "Морковь", "Хлеб", "Помидор" };
+
+            int minProductsPrice = 10;
+            int maxProductsPrice = 100;
+
+            int playerMoney = 2000;
+            int productsQuantity = 5;
+
+            foreach (string name in productsNames)
+            {
+                int price = random.Next(minProductsPrice, maxProductsPrice + 1);
+
+                for (int i = 0; i < productsQuantity; i++)
+                {
+                    products.Add(new Product(price, name));
+                }
+            }
+
+            Seller seller = new Seller(products);
+
+            Player player = new Player(playerMoney);
+
+            ActionBuilder actionBuilder = new ActionBuilder(seller, player);
+
+            Menu menu = new Menu(actionBuilder.MenuActions, "Выход");
+
+            Console.CursorVisible = false;
+
+            menu.Work();
         }
     }
 
@@ -20,52 +51,56 @@ namespace Магазин
 
         protected List<Product> _products = new List<Product>();
 
-        public void ShowProducts() => Renderer.DrawProductsInfo(Logic.GetArrayProductsInfo(_products));
+        public Product[] ShowProducts() => _products.ToArray();
     }
 
     class Player : Human
     {
-        public Player()
+        public Player(int money)
         {
-            _money = 2000;
+            _money = money;
         }
 
-        public int GiveMoney(int moneyToGive)
+        public bool IsMoneyEnough(int moneyToGive)
         {
-            _money -= moneyToGive;
+            if (moneyToGive > _money)
+                return false;
 
-            return moneyToGive;
+            return true;
+        }
+
+        public void Buy(Product product)
+        {
+            _money -= product.Price;
+
+            _products.Add(product);
         }
     }
 
     class Seller : Human
     {
-        private Dictionary<ProductNames, int> _productsPrice = new Dictionary<ProductNames, int>()
+        public Seller(List<Product> products)
         {
-            { ProductNames.Cheese, 150 },
-            { ProductNames.Sausage, 200 },
-            { ProductNames.Bread, 70 },
-            { ProductNames.Rice, 60 }
-        };
-
-        public Seller(int productsQuantity)
-        {
+            _products = products;
             _money = 0;
-
-            _products = Logic.CreateProductsList(_productsPrice, productsQuantity);
         }
 
-        public void TakeMoney(int money) => _money += money;
+        public bool TryGetProduct(string productName, out Product product)
+        {
+            product = _products.FirstOrDefault(searchProduct => searchProduct.Name.ToLower() == productName.ToLower());
 
-        public void GiveProduct(Product product) => _products.Remove(product);
-    }
+            if (product == null)
+                return false;
 
-    enum ProductNames
-    {
-        Cheese,
-        Sausage,
-        Bread,
-        Rice
+            return true;
+        }
+
+        public void Sell(Product product)
+        {
+            _money += product.Price;
+
+            _products.Remove(product);
+        }
     }
 
     class Product
@@ -76,48 +111,10 @@ namespace Магазин
             Name = name;
         }
 
-        public int Price { get; protected set; }
-        public string Name { get; protected set; }
+        public int Price { get; private set; }
+        public string Name { get; private set; }
 
         public string GiveInfo() => $"{Name}, стоит {Price}.";
-    }
-
-    class BoxFactory
-    {
-        public Box CreateTomato(int quantity, string name)
-        {
-            Product product = new Product(70, name);
-
-            return new Box(product, quantity);
-        }
-    }
-
-    class Box
-    {
-        public Box(Product product, int quantity)
-        {
-            Product = product;
-            Quantity = quantity;
-        }
-
-        public int Quantity { get; private set; }
-        public Product Product { get; }
-
-
-        public bool TryGiveOne(out Product product)
-        {
-            if (Quantity < 0)
-            {
-                product = null;
-                return false;
-            }
-
-            Quantity--;
-
-            product = new Product(Product.Price, Product.Name);
-
-            return true;
-        }
     }
 
     class Menu
@@ -189,103 +186,80 @@ namespace Магазин
             _actions[_actions.Keys.ToArray()[index]].Invoke();
         }
     }
-
-    static class Logic
+    class ActionBuilder
     {
-        public static Random Random = new Random();
+        public Dictionary<string, Action> MenuActions = new Dictionary<string, Action>();
 
-        private static Dictionary<ProductNames, string> _russiansNames = new Dictionary<ProductNames, string>()
-        {
-            { ProductNames.Cheese, "Сыр" },
-            { ProductNames.Sausage, "Колбаса" },
-            { ProductNames.Bread, "Хлеб" },
-            { ProductNames.Rice, "Рис" },
-        };
+        private Seller _seller;
+        private Player _player;
 
-        public static string CheckRussianName(ProductNames name)
+        public ActionBuilder(Seller seller, Player player)
         {
-            if (_russiansNames.ContainsKey(name))
-                return _russiansNames[name];
-            else
-                return name.ToString();
+            _seller = seller;
+            _player = player;
+
+            MenuActions.Add("Показать продукты продавца", ShowSellerProducts);
+            MenuActions.Add("Посмотреть свои продукты", ShowPlayerProducts);
+            MenuActions.Add("Купить продукт", ByuProduct);
         }
 
-        public static int CheckPrice(Dictionary<ProductNames, int> productsPrice, ProductNames name)
+        private void ShowSellerProducts()
         {
-            if (productsPrice.ContainsKey(name))
-            {
-                return productsPrice[name];
-            }
-            else
-            {
-                int price = ReadIntInput($"За товар {name} цена не указана, укажите цену: ");
+            Console.Clear();
 
-                productsPrice.Add(name, price);
+            string[] productsInfo = GetProductsInfo(_seller.ShowProducts());
 
-                return price;
-            }
+            Renderer.DrawProductsInfo(productsInfo);
         }
 
-        public static string[] GetArrayProductsInfo(List<Product> products)
+        private void ShowPlayerProducts()
         {
-            string[] productsNames = Enum.GetNames(typeof(ProductNames));
+            Console.Clear();
 
-            Dictionary<string, int> productsQuantity = new Dictionary<string, int>();
+            string[] productsInfo = GetProductsInfo(_player.ShowProducts());
 
-            foreach (string name in productsNames)
-                productsQuantity.Add(name, 0);
+            Renderer.DrawProductsInfo(productsInfo);
+        }
 
-            foreach (Product product in products)
-                productsQuantity[product.Name] = productsQuantity[product.Name]++;
+        private string[] GetProductsInfo(Product[] products)
+        {
+            string[] productsInfo = new string[products.Length];
 
-            string[] productsInfo = new string[products.Count];
-
-            for (int i = 0; i < products.Count; i++)
+            for (int i = 0; i < products.Length; i++)
                 productsInfo[i] = products[i].GiveInfo();
 
             return productsInfo;
         }
 
-        public static List<Product> CreateProductsList(Dictionary<ProductNames, int> productsPrice, int productsCount)
+        private void ByuProduct()
         {
-            List<Product> products = new List<Product>();
+            Console.CursorVisible = true;
 
-            int enumLength = Enum.GetNames(typeof(ProductNames)).Length;
+            Renderer.DrawText("Введите название товара для покупки: ", Renderer.RequestCursorPositionY);
 
-            for (int i = 0; i < productsCount; i++)
+            Console.CursorVisible = false;
+
+            string productName = Console.ReadLine();
+
+            if (_seller.TryGetProduct(productName, out Product product) == false)
             {
-                ProductNames productName = (ProductNames)Random.Next(enumLength);
+                Renderer.DrawText("Такого продукта нет.", Renderer.ResponseCursorPositionY);
 
-                products.Add(new Product(CheckPrice(productsPrice, productName), CheckRussianName(productName)));
+                return;
             }
 
-            return products;
-        }
-
-        private static string ReadStringInput(string text)
-        {
-            Renderer.DrawText(text, Renderer.RequestCursorPositionY);
-
-            return Console.ReadLine();
-        }
-
-        private static int ReadIntInput(string text)
-        {
-            int number;
-
-            string userInput = ReadStringInput(text);
-
-            while (int.TryParse(userInput, out number) == false)
+            if (_player.IsMoneyEnough(product.Price) == false)
             {
-                Renderer.DrawText("Введите число.", Renderer.ResponseCursorPositionY);
+                Renderer.DrawText($"У вас недостаточно денег.", Renderer.ResponseCursorPositionY);
 
-                userInput = ReadStringInput(text);
+                return;
             }
 
-            Renderer.EraseText(Renderer.ResponseCursorPositionY);
-            Renderer.EraseText(Renderer.RequestCursorPositionY);
+            _player.Buy(product);
 
-            return number;
+            _seller.Sell(product);
+
+            Renderer.DrawText($"Вы купили {product.Name}.", Renderer.ResponseCursorPositionY);
         }
     }
 
@@ -313,21 +287,10 @@ namespace Магазин
 
         public static void DrawProductsInfo(IEnumerable<string> text)
         {
-            int counter = 0;
+            Console.SetCursorPosition(0, ProductsCursorPositionY);
 
             foreach (string product in text)
-            {
-                Console.SetCursorPosition(0, ProductsCursorPositionY + counter);
-                Console.Write(product[counter]);
-
-                counter++;
-            }
-        }
-
-        public static void EraseColumnText(int counter, int cursorPositionY)
-        {
-            for (int i = 0; i < counter; i++)
-                EraseText(i + cursorPositionY);
+                Console.WriteLine(product);
         }
 
         public static void DrawText(string text, int cursorPositionY)
