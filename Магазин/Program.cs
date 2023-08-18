@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Policy;
 
 namespace Магазин
 {
@@ -47,33 +46,27 @@ namespace Магазин
 
     abstract class Human
     {
-        protected int _money;
+        protected int Money;
 
-        protected List<Product> _products = new List<Product>();
+        protected List<Product> Products = new List<Product>();
 
-        public Product[] ShowProducts() => _products.ToArray();
+        public Product[] GiveProductsArray() => Products.ToArray();
     }
 
     class Player : Human
     {
         public Player(int money)
         {
-            _money = money;
+            Money = money;
         }
 
-        public bool IsMoneyEnough(int moneyToGive)
-        {
-            if (moneyToGive > _money)
-                return false;
-
-            return true;
-        }
+        public bool IsMoneyEnough(int moneyToGive) => moneyToGive <= Money;
 
         public void Buy(Product product)
         {
-            _money -= product.Price;
+            Money -= product.Price;
 
-            _products.Add(product);
+            Products.Add(product);
         }
     }
 
@@ -81,25 +74,22 @@ namespace Магазин
     {
         public Seller(List<Product> products)
         {
-            _products = products;
-            _money = 0;
+            Products = products;
+            Money = 0;
         }
 
         public bool TryGetProduct(string productName, out Product product)
         {
-            product = _products.FirstOrDefault(searchProduct => searchProduct.Name.ToLower() == productName.ToLower());
+            product = Products.FirstOrDefault(searchProduct => searchProduct.Name.ToLower() == productName.ToLower());
 
-            if (product == null)
-                return false;
-
-            return true;
+            return product == null ? false : true;
         }
 
         public void Sell(Product product)
         {
-            _money += product.Price;
+            Money += product.Price;
 
-            _products.Remove(product);
+            Products.Remove(product);
         }
     }
 
@@ -186,6 +176,7 @@ namespace Магазин
             _actions[_actions.Keys.ToArray()[index]].Invoke();
         }
     }
+
     class ActionBuilder
     {
         public Dictionary<string, Action> MenuActions = new Dictionary<string, Action>();
@@ -207,7 +198,7 @@ namespace Магазин
         {
             Console.Clear();
 
-            string[] productsInfo = GetProductsInfo(_seller.ShowProducts());
+            string[] productsInfo = GetProductsInfo(_seller.GiveProductsArray());
 
             Renderer.DrawProductsInfo(productsInfo);
         }
@@ -216,7 +207,7 @@ namespace Магазин
         {
             Console.Clear();
 
-            string[] productsInfo = GetProductsInfo(_player.ShowProducts());
+            string[] productsInfo = GetProductsInfo(_player.GiveProductsArray());
 
             Renderer.DrawProductsInfo(productsInfo);
         }
