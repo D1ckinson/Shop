@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace Магазин
 {
@@ -9,66 +8,168 @@ namespace Магазин
     {
         static void Main()
         {
-            Random random = new Random();
+            int buyersMoney = 5000;
 
+            Buyer buyer = new Buyer(buyersMoney);
+            Shop shop = new Shop(buyer);
+
+            shop.Work();
+        }
+    }
+
+    class Shop
+    {
+        private Buyer _buyer;
+        private Seller _seller;
+
+        public Shop(Buyer buyer)
+        {
+            _buyer = buyer;
+            _seller = new Seller(GiveProducts());
+        }
+
+        public void Work()
+        {
+            const string BuyCommand = "1";
+            const string ShowSellerProductsCommand = "2";
+            const string ShowBuyerProductsCommand = "3";
+            const string ShowBuyerMoneyCommand = "4";
+            const string ExitCommand = "5";
+
+            bool isWork = true;
+
+            while (isWork)
+            {
+                Console.WriteLine(
+                    $"\nКоманды меню:\n" +
+                    $"{BuyCommand} - Купить продукты\n" +
+                    $"{ShowSellerProductsCommand} - Показать продукты продавца\n" +
+                    $"{ShowBuyerProductsCommand} - Показать продукты покупателя\n" +
+                    $"{ShowBuyerMoneyCommand} - Показать количество денег покупателя\n" +
+                    $"{ExitCommand} - Выйти\n");
+
+                string input = UserUtils.ReadString("Введите команду: ");
+                Console.Clear();
+
+                switch (input)
+                {
+                    case BuyCommand:
+                        Sell();
+                        break;
+
+                    case ShowSellerProductsCommand:
+                        _seller.ShowProducts();
+                        break;
+
+                    case ShowBuyerProductsCommand:
+                        _buyer.ShowProducts();
+                        break;
+
+                    case ShowBuyerMoneyCommand:
+                        _buyer.ShowMoney();
+                        break;
+
+                    case ExitCommand:
+                        isWork = false;
+                        break;
+
+                    default:
+                        Console.WriteLine("Такой команды нет");
+                        break;
+                }
+            }
+        }
+
+        private void Sell()
+        {
+            string productName = UserUtils.ReadString("Введите название товара для покупки: ");
+
+            if (_seller.TryGetProduct(productName, out Product product) == false)
+            {
+                Console.WriteLine("Такого продукта нет.");
+
+                return;
+            }
+
+            if (_buyer.IsMoneyEnough(product.Price) == false)
+            {
+                Console.WriteLine($"У вас недостаточно денег.");
+
+                return;
+            }
+
+            _buyer.Buy(product);
+            _seller.Sell(product);
+            Console.WriteLine($"Вы купили {product.Name}.");
+        }
+
+        private List<Product> GiveProducts()
+        {
             List<Product> products = new List<Product>();
+            List<string> productsNames = new List<string> { "Сыр", "Морковь", "Хлеб", "Помидор", "Картошка" };
 
-            string[] productsNames = { "Сыр", "Морковь", "Хлеб", "Помидор" };
-
-            int minProductsPrice = 50;
-            int maxProductsPrice = 200;
-
-            int playerMoney = 2000;
-            int productsQuantity = 5;
+            int minPrice = 50;
+            int maxPrice = 400;
+            int minQuantity = 2;
+            int maxQuantity = 10;
 
             foreach (string name in productsNames)
             {
-                int price = random.Next(minProductsPrice, maxProductsPrice + 1);
+                int quantity = UserUtils.GenerateRandomValue(minQuantity, maxQuantity + 1);
+                int price = UserUtils.GenerateRandomValue(minPrice, maxPrice + 1);
+                Product product = new Product(name, price);
 
-                for (int i = 0; i < productsQuantity; i++)
+                for (int i = 0; i < quantity; i++)
                 {
-                    products.Add(new Product(price, name));
+                    products.Add(product);
                 }
             }
 
-            Seller seller = new Seller(products);
-
-            Player player = new Player(playerMoney);
-
-            ActionBuilder actionBuilder = new ActionBuilder(seller, player);
-
-            Menu menu = new Menu(actionBuilder.GiveMenuActions(), "Выход");
-
-            Console.CursorVisible = false;
-
-            menu.Work();
+            return products;
         }
     }
 
     abstract class Human
     {
         protected int Money;
-
         protected List<Product> Products = new List<Product>();
 
-        public Product[] GiveProductsArray() => Products.ToArray();
+        public void ShowProducts()
+        {
+            if (Products.Count == 0)
+            {
+                Console.WriteLine("У меня нет продуктов");
+
+                return;
+            }
+
+            IEnumerable<Product> uniqueProducts = Products.Distinct();
+
+            for (int i = 0; i < uniqueProducts.Count(); i++)
+            {
+                Product product = uniqueProducts.ElementAt(i);
+                int quantity = Products.Count(productToCount => product == productToCount);
+
+                Console.WriteLine($"{product.Name}, стоит {product.Price}. Количество - {quantity}");
+            }
+        }
     }
 
-    class Player : Human
+    class Buyer : Human
     {
-        public Player(int money)
-        {
+        public Buyer(int money) =>
             Money = money;
-        }
 
         public bool IsMoneyEnough(int moneyToGive) => moneyToGive <= Money;
 
         public void Buy(Product product)
         {
             Money -= product.Price;
-
             Products.Add(product);
         }
+
+        public void ShowMoney() =>
+            Console.WriteLine("В моем кошельке:" + Money);
     }
 
     class Seller : Human
@@ -81,7 +182,7 @@ namespace Магазин
 
         public bool TryGetProduct(string productName, out Product product)
         {
-            product = Products.FirstOrDefault(searchProduct => searchProduct.Name.ToLower() == productName.ToLower());
+            product = Products.FirstOrDefault(productToSearch => productToSearch.Name.ToLower() == productName.ToLower());
 
             return product != null;
         }
@@ -89,228 +190,34 @@ namespace Магазин
         public void Sell(Product product)
         {
             Money += product.Price;
-
             Products.Remove(product);
         }
     }
 
     class Product
     {
-        public Product(int price, string name)
+        public Product(string name, int price)
         {
-            Price = price;
             Name = name;
+            Price = price;
         }
 
         public int Price { get; private set; }
         public string Name { get; private set; }
-
-        public string GiveInfo() => $"{Name}, стоит {Price}.";
     }
 
-    class Menu
+    static class UserUtils
     {
-        private const ConsoleKey UpArrow = ConsoleKey.UpArrow;
-        private const ConsoleKey DownArrow = ConsoleKey.DownArrow;
-        private const ConsoleKey Enter = ConsoleKey.Enter;
+        private static Random s_random = new Random();
 
-        private readonly Dictionary<string, Action> _actions;
-
-        private readonly Renderer _renderer = new Renderer();
-
-        private bool _isWork;
-
-        public Menu(Dictionary<string, Action> actions, string exitButtonName)
+        public static string ReadString(string text)
         {
-            _actions = actions;
-
-            _actions.Add(exitButtonName, Exit);
-        }
-
-        public void Work()
-        {
-            _isWork = true;
-
-            int menuIndex = 0;
-            int lastIndex = _actions.Count - 1;
-
-            do
-            {
-                _renderer.DrawMenuActions(_actions.Keys.ToArray(), menuIndex);
-
-                _renderer.EraseText(_renderer.RequestCursorPositionY);
-
-                switch (Console.ReadKey().Key)
-                {
-                    case DownArrow:
-                        menuIndex++;
-                        break;
-
-                    case UpArrow:
-                        menuIndex--;
-                        break;
-
-                    case Enter:
-                        StartAction(menuIndex);
-                        break;
-                }
-
-                if (menuIndex > lastIndex)
-                    menuIndex = lastIndex;
-                else if (menuIndex < 0)
-                    menuIndex = 0;
-
-            } while (_isWork);
-        }
-
-        private void Exit() => _isWork = false;
-
-        private void StartAction(int index)
-        {
-            _renderer.EraseText(_renderer.ResponseCursorPositionY);
-
-            _actions[_actions.Keys.ToArray()[index]].Invoke();
-        }
-    }
-
-    class ActionBuilder
-    {
-        private readonly Seller _seller;
-        private readonly Player _player;
-        private readonly Renderer _renderer = new Renderer();
-
-        public ActionBuilder(Seller seller, Player player)
-        {
-            _seller = seller;
-            _player = player;
-        }
-
-        public Dictionary<string, Action> GiveMenuActions()
-        {
-            Dictionary<string, Action> menuActions = new Dictionary<string, Action>()
-            {
-                {"Показать продукты продавца", ShowSellerProducts },
-                {"Посмотреть свои продукты", ShowPlayerProducts },
-                {"Купить продукт", ByuProduct },
-            };
-
-            return menuActions;
-        }
-
-        private void ShowSellerProducts()
-        {
-            Console.Clear();
-
-            string[] productsInfo = GetProductsInfo(_seller.GiveProductsArray());
-
-            _renderer.DrawProductsInfo(productsInfo);
-        }
-
-        private void ShowPlayerProducts()
-        {
-            Console.Clear();
-
-            string[] productsInfo = GetProductsInfo(_player.GiveProductsArray());
-
-            _renderer.DrawProductsInfo(productsInfo);
-        }
-
-        private string[] GetProductsInfo(Product[] products)
-        {
-            string[] productsInfo = new string[products.Length];
-
-            for (int i = 0; i < products.Length; i++)
-                productsInfo[i] = products[i].GiveInfo();
-
-            return productsInfo;
-        }
-
-        private void ByuProduct()
-        {
-            Console.CursorVisible = true;
-
-            _renderer.DrawText("Введите название товара для покупки: ", _renderer.RequestCursorPositionY);
-
-            Console.CursorVisible = false;
-
-            string productName = Console.ReadLine();
-
-            if (_seller.TryGetProduct(productName, out Product product) == false)
-            {
-                _renderer.DrawText("Такого продукта нет.", _renderer.ResponseCursorPositionY);
-
-                return;
-            }
-
-            if (_player.IsMoneyEnough(product.Price) == false)
-            {
-                _renderer.DrawText($"У вас недостаточно денег.", _renderer.ResponseCursorPositionY);
-
-                return;
-            }
-
-            _player.Buy(product);
-
-            _seller.Sell(product);
-
-            _renderer.DrawText($"Вы купили {product.Name}.", _renderer.ResponseCursorPositionY);
-        }
-    }
-
-    class Renderer
-    {
-        public readonly int ResponseCursorPositionY = 7;
-        public readonly int RequestCursorPositionY = 5;
-        public readonly int ProductsCursorPositionY = 9;
-
-        private readonly int _spaceLineSize = 100;
-        private readonly char _spaceChar = ' ';
-
-        public void DrawMenuActions(string[] text, int selectTextPosition)
-        {
-            for (int i = 0; i < text.Length; i++)
-            {
-                Console.SetCursorPosition(0, i);
-
-                if (i == selectTextPosition)
-                    DrawSelectText(text[i]);
-                else
-                    Console.Write(text[i]);
-            }
-        }
-
-        public void DrawProductsInfo(IEnumerable<string> text)
-        {
-            Console.SetCursorPosition(0, ProductsCursorPositionY);
-
-            foreach (string product in text)
-                Console.WriteLine(product);
-        }
-
-        public void DrawText(string text, int cursorPositionY)
-        {
-            EraseText(cursorPositionY);
-
-            Console.Write(text);
-        }
-
-        public void EraseText(int cursorPositionY)
-        {
-            Console.SetCursorPosition(0, cursorPositionY);
-
-            Console.Write(new string(_spaceChar, _spaceLineSize));
-
-            Console.CursorLeft = 0;
-        }
-
-        private void DrawSelectText(string text)
-        {
-            Console.ForegroundColor = ConsoleColor.Black;
-            Console.BackgroundColor = ConsoleColor.White;
-
             Console.Write(text);
 
-            Console.ResetColor();
+            return Console.ReadLine();
         }
+
+        public static int GenerateRandomValue(int min, int max) =>
+            s_random.Next(min, max);
     }
 }
