@@ -11,24 +11,20 @@ namespace Магазин
             int buyersMoney = 5000;
 
             Buyer buyer = new Buyer(buyersMoney);
-            Shop shop = new Shop(buyer);
+            Shop shop = new Shop();
 
-            shop.Work();
+            shop.Work(buyer);
         }
     }
 
     class Shop
     {
-        private Buyer _buyer;
         private Seller _seller;
 
-        public Shop(Buyer buyer)
-        {
-            _buyer = buyer;
+        public Shop() =>
             _seller = new Seller(GiveProducts());
-        }
 
-        public void Work()
+        public void Work(Buyer buyer)
         {
             const string BuyCommand = "1";
             const string ShowSellerProductsCommand = "2";
@@ -54,7 +50,7 @@ namespace Магазин
                 switch (input)
                 {
                     case BuyCommand:
-                        Sell();
+                        Sell(buyer);
                         break;
 
                     case ShowSellerProductsCommand:
@@ -62,11 +58,11 @@ namespace Магазин
                         break;
 
                     case ShowBuyerProductsCommand:
-                        _buyer.ShowProducts();
+                        buyer.ShowProducts();
                         break;
 
                     case ShowBuyerMoneyCommand:
-                        _buyer.ShowMoney();
+                        buyer.ShowMoney();
                         break;
 
                     case ExitCommand:
@@ -80,7 +76,7 @@ namespace Магазин
             }
         }
 
-        private void Sell()
+        private void Sell(Buyer buyer)
         {
             string productName = UserUtils.ReadString("Введите название товара для покупки: ");
 
@@ -91,14 +87,14 @@ namespace Магазин
                 return;
             }
 
-            if (_buyer.IsMoneyEnough(product.Price) == false)
+            if (buyer.IsMoneyEnough(product.Price) == false)
             {
                 Console.WriteLine($"У вас недостаточно денег.");
 
                 return;
             }
 
-            _buyer.Buy(product);
+            buyer.Buy(product);
             _seller.Sell(product);
             Console.WriteLine($"Вы купили {product.Name}.");
         }
@@ -160,7 +156,8 @@ namespace Магазин
         public Buyer(int money) =>
             Money = money;
 
-        public bool IsMoneyEnough(int moneyToGive) => moneyToGive <= Money;
+        public bool IsMoneyEnough(int moneyToGive) =>
+            moneyToGive <= Money;
 
         public void Buy(Product product)
         {
